@@ -1,61 +1,39 @@
 import streamlit as st
-import cv2
+from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
 import mediapipe as mp
+import cv2
 import numpy as np
 
-# Set up the page config and title
 st.set_page_config(page_title="Tempo", layout="wide")
 st.title("Tempo Fitness Rep Tracker")
 
-# Initialize 'Settings' in session_state if not already present
-if "Settings" not in st.session_state:
-    st.session_state.Settings = {"Start Webcam": False}
-
-# Sidebar controls
-st.sidebar.title("Settings")
-run = st.sidebar.checkbox("Start Webcam", value=False)  # Use checkbox for webcam toggle
-
-# Update session_state when checkbox is toggled
-st.session_state.Settings["Start Webcam"] = run
-
-# Initialize MediaPipe Pose
-mp_drawing = mp.solutions.drawing_utils
+# MediaPipe pose setup
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
+mp_drawing = mp.solutions.drawing_utils
 
-frame_placeholder = st.empty()  # Placeholder for video stream
+class PoseDetector(VideoTransformerBase):
+    def transform(self, frame):
+        img = frame.to_ndarray(format="bgr24")
+        img = cv2.flip(img, 1)
 
-# Start video stream
-if run:
-    cap = cv2.VideoCapture(0)
+        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        results = pose.process(rgb)
 
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            st.warning("Unable to access camera.")
-            break
-
-        # Flip frame for mirror view
-        frame = cv2.flip(frame, 1)
-
-        # Convert to RGB for MediaPipe
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        results = pose.process(rgb_frame)
-
-        # Draw landmarks
         if results.pose_landmarks:
             mp_drawing.draw_landmarks(
-                frame,
+                img,
                 results.pose_landmarks,
                 mp_pose.POSE_CONNECTIONS,
                 mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=3),
-                mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2)
+                mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2),
             )
 
-        frame_placeholder.image(frame, channels="BGR")
+        return img
 
-        # Break when user stops the toggle
-        if not st.session_state.Settings["Start Webcam"]:
-            break
-
-    cap.release()
+# Start webcam stream
+webrtc_streamer(
+    key="pose",
+    video_transformer_factory=PoseDetector,
+    media_stream_constraints={"video": True, "audio": False},
+)
