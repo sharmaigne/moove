@@ -1,35 +1,59 @@
 import streamlit as st
-from streamlit_webrtc import webrtc_streamer, VideoTransformerBase
+from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
 import mediapipe as mp
 import cv2
 import numpy as np
+import av
+from mediapipe.python.solutions.drawing_utils import DrawingSpec
 
 st.set_page_config(page_title="Tempo", layout="wide")
 st.title("Tempo Fitness Rep Tracker")
 
-# MediaPipe pose setup
+# MediaPipe Pose setup
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose()
 mp_drawing = mp.solutions.drawing_utils
 
-class PoseDetector(VideoTransformerBase):
-    def transform(self, frame):
-        img = frame.to_ndarray(format="bgr24")
-        img = cv2.flip(img, 1)
+# Exclude facial landmarks (indices 0–10)
+LAST_FACE_LANDMARK = 10
 
-        rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        results = pose.process(rgb)
+# Filter out face-related connections
+BODY_CONNECTIONS = [
+    (a, b)
+    for (a, b) in mp_pose.POSE_CONNECTIONS
+    if a > LAST_FACE_LANDMARK or b > LAST_FACE_LANDMARK
+]
 
+# Custom landmark drawing style
+LANDMARK_STYLE = {
+    i: DrawingSpec(color=(0, 155, 0), thickness=2, circle_radius=2) for i in range(33)
+}
+for i in range(LAST_FACE_LANDMARK + 1):
+    LANDMARK_STYLE[i] = DrawingSpec(color=(255, 255, 0), thickness=0, circle_radius=0)
+
+
+def draw_landmarks(img, landmarks):
+    mp_drawing.draw_landmarks(
+        img,
+        landmarks,
+        BODY_CONNECTIONS,
+        landmark_drawing_spec=LANDMARK_STYLE,
+        connection_drawing_spec=DrawingSpec(color=(200, 0, 155), thickness=2),
+    )
+
+
+# Main Video Processor
+class PoseDetector(VideoProcessorBase):
+    def recv(self, frame):
+        img = frame.to_ndarray(format="rgb24")
+        results = pose.process(img)
         if results.pose_landmarks:
-            mp_drawing.draw_landmarks(
-                img,
-                results.pose_landmarks,
-                mp_pose.POSE_CONNECTIONS,
-                mp_drawing.DrawingSpec(color=(0, 255, 0), thickness=2, circle_radius=3),
-                mp_drawing.DrawingSpec(color=(0, 0, 255), thickness=2),
-            )
+            draw_landmarks(img, results.pose_landmarks)
 
-        return img
+        # flip the image horizontally for a mirror effect
+        img = cv2.flip(img, 1)
+        return av.VideoFrame.from_ndarray(img, format="rgb24")
+
 
 # Start webcam stream
 webrtc_streamer(
