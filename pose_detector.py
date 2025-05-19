@@ -1,4 +1,3 @@
-from streamlit_webrtc import webrtc_streamer, VideoProcessorBase
 import mediapipe as mp
 import cv2
 from mediapipe.python.solutions.drawing_utils import DrawingSpec
@@ -36,10 +35,9 @@ def draw_landmarks(img, landmarks):
     )
 
 
-def process_frame(frame):
-    img = frame.to_ndarray(format="rgb24")
+def process_frame(img):
     # flip the image horizontally for a mirror effect
     img = cv2.flip(img, 1)
     results = pose.process(img)
-
     return results, img
+
