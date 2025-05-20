@@ -18,8 +18,11 @@ class MainFrame(wx.Frame):
         # Video display
         self.bmp = wx.StaticBitmap(self.panel)
 
-        # Rep counter
-        self.rep_counter = RepCounter("Squats")  # or Jumping Jacks, can be dynamic later
+        # Exercise choice dropdown
+        exercise_choices = ["Squats", "Jumping Jacks"]
+        self.exercise_choice = wx.Choice(self.panel, choices=exercise_choices)
+        self.exercise_choice.SetSelection(0)  # default to Squats
+        self.rep_counter = RepCounter( "Squats")  # default
 
         # Webcam capture
         self.cap = cv2.VideoCapture(0)
@@ -43,26 +46,33 @@ class MainFrame(wx.Frame):
         self.stop_btn.Bind(wx.EVT_BUTTON, self.on_stop)
 
         # Timer label
-        self.timer_label = wx.StaticText(self.panel, label="Time Remaining: 60 sec", style=wx.ALIGN_CENTER)
+        self.timer_label = wx.StaticText(
+            self.panel, label="Time Remaining: 60 sec", style=wx.ALIGN_CENTER
+        )
         font = self.timer_label.GetFont()
         font.PointSize += 8
         self.timer_label.SetFont(font)
 
         # Countdown before timer starts
-        self.countdown_label = wx.StaticText(self.panel, label="", style=wx.ALIGN_CENTER)
+        self.countdown_label = wx.StaticText(
+            self.panel, label="", style=wx.ALIGN_CENTER
+        )
         countdown_font = self.countdown_label.GetFont()
         countdown_font.PointSize += 100  # BIG
         self.countdown_label.SetFont(countdown_font)
         self.countdown_label.Hide()  # hidden by default
 
         # Rep count label
-        self.rep_label = wx.StaticText(self.panel, label="Reps: 0", style=wx.ALIGN_CENTER)
+        self.rep_label = wx.StaticText(
+            self.panel, label="Reps: 0", style=wx.ALIGN_CENTER
+        )
         font2 = self.rep_label.GetFont()
         font2.PointSize += 10
         self.rep_label.SetFont(font2)
 
         # Layout
         btn_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        btn_sizer.Add(self.exercise_choice, 0, wx.ALIGN_CENTER | wx.TOP, 10)
         btn_sizer.Add(self.start_btn, 0, wx.ALL, 5)
         btn_sizer.Add(self.stop_btn, 0, wx.ALL, 5)
 
@@ -84,8 +94,10 @@ class MainFrame(wx.Frame):
         # sizer for overlay panel and add the countdown_label centered
         overlay_sizer = wx.BoxSizer(wx.VERTICAL)
         overlay_sizer.AddStretchSpacer(1)
-        overlay_sizer.Add(self.countdown_label, 1, wx.ALIGN_CENTER | wx.ALIGN_CENTER_VERTICAL)
-        overlay_sizer.AddStretchSpacer(1) 
+        overlay_sizer.Add(
+            self.countdown_label, 1, wx.ALIGN_CENTER | wx.ALIGN_CENTER_VERTICAL
+        )
+        overlay_sizer.AddStretchSpacer(1)
         self.overlay_panel.SetSizer(overlay_sizer)
         self.overlay_panel.Layout()
 
@@ -93,7 +105,7 @@ class MainFrame(wx.Frame):
 
         # State variables
         self.is_running = False
-        self.session_start = Nonea
+        self.session_start = None
         self.session_duration = timedelta(seconds=60)
 
         self.countdown_value = 3  # 3 second pre-countdown
@@ -102,7 +114,7 @@ class MainFrame(wx.Frame):
         size = self.panel.GetSize()
         self.overlay_panel.SetSize(size)
         event.Skip()
-    
+
     def on_start(self, event):
         # Disable start button immediately
         self.start_btn.Disable()
@@ -128,11 +140,15 @@ class MainFrame(wx.Frame):
     def start_session(self):
         self.is_running = True
         self.session_start = datetime.now()
+        selected_exercise = self.exercise_choice.GetStringSelection()
+        self.rep_counter = RepCounter(selected_exercise)
+        print(selected_exercise)
         self.rep_counter.reset()
         self.rep_label.SetLabel("Reps: 0")
         self.timer_label.SetLabel("Time Remaining: 60 sec")
 
         self.stop_btn.Enable()  # enable stop button now
+        self.exercise_choice.Disable()  # don't allow changing mid countdown
         self.frame_timer.Start(33)
         self.timer.Start(1000)
 
@@ -146,6 +162,7 @@ class MainFrame(wx.Frame):
         self.countdown.Stop()
 
         self.start_btn.Enable()
+        self.exercise_choice.Enable()
         self.stop_btn.Disable()
 
         self.timer_label.SetLabel("Session stopped.")
@@ -155,12 +172,16 @@ class MainFrame(wx.Frame):
             return
 
         elapsed = datetime.now() - self.session_start
-        remaining_sec = max(0, int(self.session_duration.total_seconds() - elapsed.total_seconds()))
+        remaining_sec = max(
+            0, int(self.session_duration.total_seconds() - elapsed.total_seconds())
+        )
         self.timer_label.SetLabel(f"Time Remaining: {remaining_sec} sec")
 
         if remaining_sec <= 0:
             self.end_session()
-            wx.MessageBox("Time's up! Well done!", "Session Complete", wx.OK | wx.ICON_INFORMATION)
+            wx.MessageBox(
+                "Time's up! Well done!", "Session Complete", wx.OK | wx.ICON_INFORMATION
+            )
 
     def on_next_frame(self, event):
         if not self.is_running:

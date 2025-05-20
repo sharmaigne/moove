@@ -25,29 +25,28 @@ class RepCounter:
         """
         Logic to count squats based on pose landmarks.
         """
-        tolerance = 0.05  # Tolerance for detecting squat completion
+        requirement = 0.005  # Sensitivity for squat depth
 
-        # Extract relevant landmark positions using LANDMARKS dictionary
+        # Get Y-coordinates of key points
         left_knee = landmarks.landmark[LANDMARKS["left_knee"]].y
         right_knee = landmarks.landmark[LANDMARKS["right_knee"]].y
         left_hip = landmarks.landmark[LANDMARKS["left_hip"]].y
         right_hip = landmarks.landmark[LANDMARKS["right_hip"]].y
 
-        # Check if knees are lower than hips (squatting down)
-        if not self.in_progress:
-            if left_knee < left_hip - tolerance and right_knee < right_hip - tolerance:
-                # Start of a new squat
-                self.in_progress = True
+        # Average positions
+        knee_avg = (left_knee + right_knee) / 2
+        hip_avg = (left_hip + right_hip) / 2
 
-        # Check if knees are above hips (standing up)
-        elif self.in_progress:
-            if left_knee > left_hip + tolerance and right_knee > right_hip + tolerance:
-                # End of a squat
-                self.rep_count += 1
-                self.in_progress = False
+        if not self.in_progress and knee_avg > hip_avg + requirement:
+            # Squatting down - knees are clearly below hips
+            self.in_progress = True
+
+        elif self.in_progress and knee_avg < hip_avg - requirement:
+            # Standing up - knees are clearly above hips
+            self.rep_count += 1
+            self.in_progress = False
 
         return self.rep_count, self.in_progress
-
 
     def _update_jumping_jacks(self, landmarks):
         """
