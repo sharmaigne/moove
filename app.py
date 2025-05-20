@@ -25,7 +25,8 @@ class MainFrame(wx.Frame):
         self.rep_counter = RepCounter( "Squats")  # default
 
         # Webcam capture
-        self.cap = cv2.VideoCapture(0)
+        self.cap = None
+        self.show_camera = False
 
         # Timers
         self.frame_timer = wx.Timer(self)
@@ -126,6 +127,12 @@ class MainFrame(wx.Frame):
         self.countdown_value = 3
         self.countdown_label.SetLabel(str(self.countdown_value))
         self.countdown_label.Show()
+
+        self.show_camera = True  # allow webcam to show
+        if self.cap is None:
+            self.cap = cv2.VideoCapture(0)
+
+        self.frame_timer.Start(33)
         self.countdown.Start(1000)  # 3, 2, 1...
 
     def on_countdown(self, event):
@@ -149,7 +156,6 @@ class MainFrame(wx.Frame):
 
         self.stop_btn.Enable()  # enable stop button now
         self.exercise_choice.Disable()  # don't allow changing mid countdown
-        self.frame_timer.Start(33)
         self.timer.Start(1000)
 
     def on_stop(self, event):
@@ -166,6 +172,9 @@ class MainFrame(wx.Frame):
         self.stop_btn.Disable()
 
         self.timer_label.SetLabel("Session stopped.")
+
+        if self.cap.isOpened():
+            self.cap.release()
 
     def on_timer(self, event):
         if not self.is_running or not self.session_start:
@@ -184,7 +193,7 @@ class MainFrame(wx.Frame):
             )
 
     def on_next_frame(self, event):
-        if not self.is_running:
+        if not self.show_camera:
             return
 
         ret, frame_bgr = self.cap.read()
