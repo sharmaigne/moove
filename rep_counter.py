@@ -53,43 +53,53 @@ class RepCounter:
         Logic to count jumping jacks based on pose landmarks.
         """
 
-        tolerance = 0.05  # Tolerance for detecting a full rep (arms and legs spread)
+        if not landmarks:
+            return self.rep_count, self.in_progress
 
-        if landmarks:
-            # Extract relevant landmark positions
-            left_shoulder = landmarks.landmark[LANDMARKS["left_shoulder"]].y
-            right_shoulder = landmarks.landmark[LANDMARKS["right_shoulder"]].y
-            left_hip = landmarks.landmark[LANDMARKS["left_hip"]].y
-            right_hip = landmarks.landmark[LANDMARKS["right_hip"]].y
-            left_ankle = landmarks.landmark[LANDMARKS["left_ankle"]].y
-            right_ankle = landmarks.landmark[LANDMARKS["right_ankle"]].y
+        left_wrist = landmarks.landmark[LANDMARKS["left_wrist"]]
+        right_wrist = landmarks.landmark[LANDMARKS["right_wrist"]]
+        left_shoulder = landmarks.landmark[LANDMARKS["left_shoulder"]]
+        right_shoulder = landmarks.landmark[LANDMARKS["right_shoulder"]]
+        left_ankle = landmarks.landmark[LANDMARKS["left_ankle"]]
+        right_ankle = landmarks.landmark[LANDMARKS["right_ankle"]]
 
-            # Check if arms are overhead and legs are spread (jumping jack position)
-            if (
-                left_shoulder.y < 0.4
-                and right_shoulder.y < 0.4
-                and left_hip.y < 0.4
-                and right_hip.y < 0.4
-                and left_ankle.y < 0.6
-                and right_ankle.y < 0.6
-            ):
-                if not self.in_progress:
-                    # Start of a new jumping jack rep
-                    self.in_progress = True
+        # Arms up if both wrists are higher than shoulders by a margin
+        arms_up = (
+            left_wrist.y < left_shoulder.y - 0.1
+            and right_wrist.y < right_shoulder.y - 0.1
+        )
 
-            # Check if arms are back at sides and legs are together
-            elif (
-                left_shoulder.y > 0.7
-                and right_shoulder.y > 0.7
-                and left_hip.y > 0.7
-                and right_hip.y > 0.7
-                and left_ankle.y > 0.8
-                and right_ankle.y > 0.8
-            ):
-                if self.in_progress:
-                    # End of a jumping jack rep
-                    self.rep_count += 1
-                    self.in_progress = False
+        # Arms down if both wrists are near or below shoulders
+        arms_down = (
+            left_wrist.y > left_shoulder.y
+            and right_wrist.y > right_shoulder.y
+        )
+
+        # Compute horizontal distance between ankles
+        ankle_distance = abs(left_ankle.x - right_ankle.x)
+
+        # Estimate shoulder width to normalize distance (optional)
+        shoulder_width = abs(left_shoulder.x - right_shoulder.x)
+
+        # Legs spread if ankle distance > 1.2 * shoulder width (adjust factor)
+        legs_spread = ankle_distance > shoulder_width * 1.2
+
+        # Legs together if ankle distance < shoulder width * 0.8 (adjust factor)
+        legs_together = ankle_distance < shoulder_width * 0.8
+
+        # Detect jumping jack open position
+        jumping_jack_open = arms_up and legs_spread
+
+        # Detect jumping jack closed position
+        jumping_jack_closed = arms_down and legs_together
+
+        if jumping_jack_open and not self.in_progress:
+            self.in_progress = True
+
+        elif jumping_jack_closed and self.in_progress:
+            self.rep_count += 1
+            self.in_progress = False
 
         return self.rep_count, self.in_progress
+
 

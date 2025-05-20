@@ -129,7 +129,7 @@ class MainFrame(wx.Frame):
         self.countdown_label.Show()
 
         self.show_camera = True  # allow webcam to show
-        if self.cap is None:
+        if self.cap is None or not self.cap.isOpened():
             self.cap = cv2.VideoCapture(0)
 
         self.frame_timer.Start(33)
@@ -149,7 +149,6 @@ class MainFrame(wx.Frame):
         self.session_start = datetime.now()
         selected_exercise = self.exercise_choice.GetStringSelection()
         self.rep_counter = RepCounter(selected_exercise)
-        print(selected_exercise)
         self.rep_counter.reset()
         self.rep_label.SetLabel("Reps: 0")
         self.timer_label.SetLabel("Time Remaining: 60 sec")
